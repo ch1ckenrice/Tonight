@@ -1,6 +1,34 @@
 import { Link } from 'react-router-dom'
+import {useEffect, useState} from "react";
+import {
+    getPopularMovies,
+    type TmdbMovie,
+} from '../services/tmdb'
+import { MovieCard } from '../components/MovieCard'
 
 function HomePage() {
+
+    const [movies, setMovies] = useState<TmdbMovie[]>([])
+    const [isLoading, setIsLoading] = useState(true)
+    const [errorMessage, setErrorMessage] = useState('')
+
+    useEffect(() => {
+        async function loadMovies() {
+          try{
+              setIsLoading(true)
+              setErrorMessage('')
+
+              const popularMovies = await getPopularMovies()
+
+              setMovies(popularMovies)
+          } catch {
+              setErrorMessage('Something went wrong')
+          } finally {
+              setIsLoading(false)
+          }
+        }
+        loadMovies()
+    }, [])
     return (
         <main className="app">
             <header className="top-bar">
@@ -30,6 +58,22 @@ function HomePage() {
                     <li>Quick decisions</li>
                     <li>No account needed</li>
                 </ul>
+            </section>
+
+            <section>
+                <h2>Popular tonight</h2>
+
+                {isLoading && <p>Loading movies...</p>}
+
+                {errorMessage && <p>{errorMessage}</p>}
+
+                {!isLoading && !errorMessage && (
+                   <div className="movie-grid">
+                       {movies.slice(0,6).map((movie) =>(
+                           <MovieCard key={movie.id} movie={movie} />
+                       ))}
+                   </div>
+                )}
             </section>
 
             <section className="how-it-works" aria-labelledby="how-it-works-title">

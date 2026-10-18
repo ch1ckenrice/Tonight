@@ -3,7 +3,8 @@
   max-width: 720px;
   margin: 0 auto;
   padding: 20px;
-  overflow: hidden;
+  position: relative;
+  isolation: isolate;
   background:
           radial-gradient(
                   circle at 85% 8%,
@@ -11,6 +12,10 @@
                   transparent 34%
           ),
           #171512;
+}
+.app-content {
+  position: relative;
+  z-index: 2;
 }
 
 .top-bar {
@@ -84,6 +89,7 @@
   cursor: pointer;
   font-weight: 800;
   transition: transform 160ms ease, background 160ms ease;
+  text-decoration: none;
 }
 
 .primary-button:hover {
@@ -315,7 +321,319 @@
 .name-input + .primary-button {
   margin-top: 1.25rem;
 }
+.friends-section {
+  margin-top: 2rem;
+  padding-top: 2rem;
+  border-top: 1px solid rgba(248, 245, 242, 0.1);
+}
+.friends-heading {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.friends-heading h2 {
+  margin: 0;
+  color: #f8f5f2;
+  font-size: 1.1rem;
+}
+.friends-heading p {
+  margin: 0.35rem 0 0;
+  color: #9b948c;
+  font-size: 0.9rem;
+}
+.friends-heading > span {
+  flex-shrink: 0;
+  border-radius: 999px;
+  padding: 0.35rem 0.55rem;
+  color: #ef7d4d;
+  background: rgba(239, 125, 77, 0.13);
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+.friends-list {
+  display: grid;
+  gap: 0.85rem;
+  margin-top: 1.25rem;
+}
+.friend-input-row label {
+  display: block;
+  margin-bottom: 0.45rem;
+  color: #d2cbc4;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+.friend-input-row > div {
+  display: flex;
+  gap: 0.65rem;
+}
+.friend-input-row input {
+   width: 100%;
+   min-width: 0;
+   border: 1px solid rgba(248, 245, 242, 0.16);
+   border-radius: 0.8rem;
+   padding: 0.85rem 1rem;
+   color: #f8f5f2;
+   background: rgba(255, 255, 255, 0.05);
+   font: inherit;
+   outline: none;
+ }
+.friend-input-row input:focus {
+  border-color: #ef7d4d;
+  box-shadow: 0 0 0 4px rgba(239, 125, 77, 0.14);
+}
 
+.remove-friend-button,
+.add-friend-button {
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 800;
+}
+.remove-friend-button {
+  border-radius: 0.8rem;
+  padding: 0 0.75rem;
+  color: #e1a396;
+  background: rgba(225, 104, 88, 0.12);
+  font-size: 0.8rem;
+}
+
+.add-friend-button {
+  margin-top: 1rem;
+  padding: 0;
+  color: #ef7d4d;
+  font-size: 0.9rem;
+}
+.add-friend-button:hover,
+.remove-friend-button:hover {
+  filter: brightness(1.18);
+}
+
+.friends-section + .primary-button {
+  margin-top: 1.5rem;
+}
+
+.mood-options {
+  display: grid;
+  gap: 0.85rem;
+  margin: 2rem 0 1.5rem;
+}
+.mood-card {
+  width: 100%;
+  border: 1px solid rgba(248, 245, 242, 0.12);
+  border-radius: 1rem;
+  padding: 1.1rem;
+  color: #f8f5f2;
+  background: rgba(255, 255, 255, 0.04);
+  cursor: pointer;
+  text-align: left;
+  transition:
+          border-color 160ms ease,
+          background 160ms ease,
+          transform 160ms ease;
+}
+.mood-card:hover {
+  border-color: rgba(239, 125, 77, 0.6);
+  transform: translateY(-2px);
+}
+
+.mood-card.is-selected {
+  border-color: #ef7d4d;
+  background: rgba(239, 125, 77, 0.14);
+}
+.mood-card:focus-visible {
+  outline: 2px solid #f8f5f2;
+  outline-offset: 3px;
+}
+
+.mood-card strong,
+.mood-card small {
+  display: block;
+}
+
+.mood-card strong {
+  font-size: 1rem;
+}
+
+.mood-card small {
+  margin-top: 0.35rem;
+  color: #a9a198;
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+
+.popular-section {
+  padding: 3rem 1.5rem;
+}
+
+.movie-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  margin-top: 1.25rem;
+  margin-bottom: 1.25rem;
+}
+
+.movie-card {
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 1rem;
+  background: #262321;
+}
+
+.movie-poster,
+.movie-poster-placeholder {
+  display: block;
+  width: 100%;
+  aspect-ratio: 2 / 3;
+}
+
+.movie-poster {
+  object-fit: cover;
+}
+
+.movie-poster-placeholder {
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  color: #aaa29b;
+  background: #36312e;
+}
+
+.movie-card-content {
+  padding: 0.85rem;
+}
+
+.movie-card h3 {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.movie-card p {
+  margin: 0.45rem 0 0;
+  color: #aaa29b;
+  font-size: 0.8rem;
+}
+
+.choice-stage {
+  width: 100%;
+  max-width: 22rem;
+  margin: 2rem auto 0;
+}
+
+.choice-actions {
+  display: flex;
+  gap: 2rem;
+  justify-content: center;
+  margin-top: 1rem;
+}
+
+.swipe-button{
+  width: 4rem;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  font-weight: 1000;
+  font-size: larger;
+  transition:
+          background 160ms ease,
+          transform 160ms ease;}
+.swipe-button:active {
+  transform: scale(0.94)
+}
+
+.like-button {
+  background: #ef7d4d;
+  color: #171512;
+  border: none;
+}
+.like-button:hover{
+  background: #f4b294;
+}
+
+.skip-button {
+
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: #262321;
+  color: #eae5e1;
+}
+.skip-button:hover {
+  background: #7e5441;
+}
+.skip-button:focus-visible,
+.like-button:focus-visible{
+  outline: 2px solid #f8f5f2;
+  outline-offset: 3px;
+}
+
+.movie-overview {
+  margin: 0.5rem;
+}
+.top-pick-text{
+  display: flex;
+  margin: 0.5rem 0 0 0.5rem;
+  font-weight: 600;
+  color: #aaa29b;
+  font-size: 0.7rem;
+}
+.swipe-card{
+  position: relative;
+  overflow: hidden;
+  border-radius: 1rem;
+  touch-action: pan-y;
+  user-select: none;
+}
+  .swipe-feedback {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    pointer-events: none;
+  }
+.swipe-feedback-like {
+  background: linear-gradient(
+          90deg,
+          transparent 45%,
+          rgba(239, 125, 77, 0.7)
+  );
+}
+.swipe-feedback-skip {
+  background: linear-gradient(
+          90deg,
+          rgb(130 147 166 / 0.45),
+          transparent 55%
+  );
+}
+.swipe-label {
+  position: absolute;
+  top: 50%;
+  padding: 0.35rem 0.55rem;
+  border: 3px solid currentColor;
+  border-radius: 0.35rem;
+  font-size: 1.25rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  line-height: 1;
+}
+.swipe-label-like {
+  right: 1rem;
+  color: #ef7d4d;
+  transform: translateY(-50%) rotate(10deg);
+}
+
+.swipe-label-skip {
+  left: 1rem;
+  color: #d66b61;
+  transform: translateY(-50%) rotate(-10deg);
+}
+.swipe-label-skip {
+  left: 1rem;
+  color: #687ec8;
+  transform: rotate(-10deg);
+}
 @media (min-width: 640px) {
   .app {
     padding: 28px 36px;
