@@ -1,8 +1,9 @@
-import { Navigate, useLocation } from 'react-router-dom'
+import {Link, Navigate, useLocation} from 'react-router-dom'
 import type { TonightSession } from '../types/session'
 import {useEffect, useRef, useState, type PointerEvent } from "react";
 import {getMoviesForMood, type TmdbMovie} from "../services/tmdb.ts";
 import { MovieCard } from '../components/MovieCard'
+import {SwipeMovieCard} from "../components/SwipeMovieCard.tsx";
 
 const SWIPE_THRESHOLD = {
     like: 110,
@@ -23,10 +24,21 @@ export function ChoosePage() {
     const [isDragging, setIsDragging] = useState(false)
     const dragStartX = useRef<number>(0)
     const dragXRef = useRef(0)
+    const [exitDirection , setExitDirection] = useState<'like' | 'skip' | null>(null)
+
+    let cardTransform = `translateX(${dragX}px) rotate(${dragX / 20}deg)`
+    if (exitDirection === 'like') {
+        cardTransform = 'translateX(120vw) rotate(12deg)'
+    }
+    else if (exitDirection === 'skip') {
+        cardTransform = 'translateX(-120vw) rotate(-12deg)'
+    }
 
     const cardStyle = {
-        transform: `translateX(${dragX}px) rotate(${dragX / 20}deg)`,
-        transition: isDragging ? 'none' : 'transform 180ms ease',
+        transform: cardTransform,
+        transition: isDragging
+            ? 'none'
+            : 'transform 620ms cubic-bezier(0.4, 0, 0.2, 1)',
     }
 
     useEffect(() => {
@@ -97,6 +109,22 @@ export function ChoosePage() {
         setDragX(0)
     }
 
+    function startButtonSwipe(direction: 'like' | 'skip') {
+        setExitDirection(direction)
+    }
+
+    function handleCardTransitionEnd() {
+        if (exitDirection === null) {
+            return
+        }
+        if (exitDirection === 'like') {
+            handleLike()
+        }else {
+            handleSkip()
+        }
+        setExitDirection(null)
+    }
+
     useEffect(() => {
         if(!isDragging) {
             return
@@ -147,9 +175,18 @@ export function ChoosePage() {
         ? likedMovies.filter((movie) => movie.id !== bestMovie.id)
         : []
 
-    const likeOpacity = Math.min(Math.max(dragX / SWIPE_THRESHOLD.like, 0), 1)
-    const skipOpacity = Math.min(Math.max(dragX / SWIPE_THRESHOLD.skip, 0), 1)
-
+    let likeOpacity
+    if(exitDirection === 'like') {
+        likeOpacity = 1
+    } else {
+        likeOpacity= Math.min(Math.max(dragX / SWIPE_THRESHOLD.like, 0), 1)
+    }
+    let skipOpacity
+    if(exitDirection === 'skip') {
+        skipOpacity = 1
+    } else {
+        skipOpacity = Math.min(Math.max(dragX / SWIPE_THRESHOLD.skip, 0), 1)
+    }
     return (
         <main className="app">
             <div style={{ opacity: likeOpacity }} className="swipe-feedback swipe-feedback-like">
@@ -177,18 +214,21 @@ export function ChoosePage() {
 
             {!isLoading && !errorMessage && currentMovie && (
                 <section className="choice-stage">
-                    <div className="swipe-card"
-                         onPointerDown={handlePointerDown}
-                         style={cardStyle}
+                    <div
+                        key={currentMovie.id}
+                        className="swipe-card"
+                        onPointerDown={handlePointerDown}
+                        onTransitionEnd={handleCardTransitionEnd}
+                        style={cardStyle}
                     >
-                    <MovieCard movie={currentMovie} showOverview/>
+                    <SwipeMovieCard movie={currentMovie} showOverview />
                     </div>
                     <div className="choice-actions">
                         <button
                             className="skip-button swipe-button"
                             aria-label="Skip this movie"
                             type="button"
-                            onClick={handleSkip}
+                            onClick={() => startButtonSwipe('skip')}
                         >
                             ×
                         </button>
@@ -196,7 +236,7 @@ export function ChoosePage() {
                         className="like-button swipe-button"
                         aria-label="Like this movie"
                         type="button"
-                        onClick={handleLike}
+                        onClick={() => startButtonSwipe('like')}
                         >
                             ♥
                         </button>
@@ -205,8 +245,6 @@ export function ChoosePage() {
             )}
             {!isLoading && !errorMessage && !currentMovie && (
               <div>
-                  <h3>Your Picks</h3>
-
 
                   {bestMovie ? (
                       <article>
@@ -228,7 +266,14 @@ export function ChoosePage() {
                       </article>
 
                   ) : (
-                      <p>Nothing saved this time.</p>
+                      <>
+                          <h2>Nothing saved this time.</h2>
+                          <p>Choose a different mood and we’ll build a new movie deck.</p>
+
+                          <Link to="/setup" className="primary-button">
+                              Choose a mood
+                          </Link>
+                      </>
                   )}
 
 

@@ -3,11 +3,12 @@ import { getPosterUrl, type TmdbMovie } from '../services/tmdb'
 type MovieCardProps = {
     movie: TmdbMovie
     showOverview?: boolean
+    className?: string
 }
 
-export function MovieCard({ movie, showOverview = false }: MovieCardProps) {
+export function MovieCard({ movie, showOverview = false,  className = ''}: MovieCardProps) {
     return (
-        <article className="movie-card">
+        <article className={`movie-card ${className}`} >
             {movie.poster_path ? (
                 <img
                     className="movie-poster"
