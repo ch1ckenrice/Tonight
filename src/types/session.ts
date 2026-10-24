@@ -9,7 +9,7 @@ export type Participant = {
 
 export type TonightSession = {
     watchMode: WatchMode
-    hostName: string
+    host: Participant
     friends: Participant[]
     mood: Mood
 }
