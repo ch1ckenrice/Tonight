@@ -4,28 +4,43 @@ import {useEffect, useRef, useState, type PointerEvent } from "react";
 import {getMoviesForMood, type TmdbMovie} from "../services/tmdb.ts";
 import { MovieCard } from '../components/MovieCard'
 import {SwipeMovieCard} from "../components/SwipeMovieCard.tsx";
+import type {ChooseStage, LikedMovieIdsByParticipant, StoredRound} from "../types/round.ts";
+import {clearStoredRound, getStoredRound, saveStoredRound} from "../services/roundStorage.ts";
 
 const SWIPE_THRESHOLD = {
     like: 110,
     skip:-110
 }
+const DECK_SIZE = 12
+
 
 export function ChoosePage() {
     const location = useLocation()
-    const session = location.state as TonightSession | null
+    const locationSession = location.state as TonightSession | null
+    const [savedRound] = useState<StoredRound | null>(() => getStoredRound())
+
+    const shouldRestoreRound =
+        savedRound !== null &&
+        (!locationSession || savedRound.session.host.id === locationSession.host.id)
+
+    const storedRound = shouldRestoreRound ? savedRound : null
+
+    const session = storedRound?.session ?? locationSession ?? null
     const mood = session?.mood
-    const [movies, setMovies] = useState<TmdbMovie[]>([])
-    const [isLoading, setIsLoading] = useState(true)
+    const [movies, setMovies] = useState<TmdbMovie[]>(storedRound?.deckMovies ?? [])
+    const deckMovies = movies.slice(0, DECK_SIZE)
+    const [isLoading, setIsLoading] = useState(storedRound === null)
     const [errorMessage, setErrorMessage] = useState('')
-    const [currentMovieIndex, setCurrentMovieIndex] = useState(0)
-    const currentMovie = movies[currentMovieIndex]
-    const [likedMovieIds, setLikedMovieIds] = useState<number[]>([])
+    const [currentMovieIndex, setCurrentMovieIndex] = useState(storedRound?.currentMovieIndex ?? 0)
+    const currentMovie = deckMovies[currentMovieIndex]
+    const [likedMovieIds, setLikedMovieIds] = useState<LikedMovieIdsByParticipant>(storedRound?.likedMovieIds ?? {})
     const [dragX, setDragX] = useState<number>(0)
     const [isDragging, setIsDragging] = useState(false)
     const dragStartX = useRef<number>(0)
     const dragXRef = useRef(0)
     const [exitDirection , setExitDirection] = useState<'like' | 'skip' | null>(null)
-
+    const [currentParticipantIndex, setCurrentParticipantIndex] = useState<number>(storedRound?.currentParticipantIndex ?? 0)
+    const [chooseStage, setChooseStage] = useState<ChooseStage>(storedRound?.chooseStage ?? 'choosing')
     let cardTransform = `translateX(${dragX}px) rotate(${dragX / 20}deg)`
     if (exitDirection === 'like') {
         cardTransform = 'translateX(120vw) rotate(12deg)'
@@ -41,8 +56,10 @@ export function ChoosePage() {
             : 'transform 620ms cubic-bezier(0.4, 0, 0.2, 1)',
     }
 
+    const isGroupMode = session?.watchMode === 'group'
+
     useEffect(() => {
-        if (!mood) {
+        if (!mood || storedRound) {
             return
         }
         const selectedMood = mood
@@ -65,23 +82,75 @@ export function ChoosePage() {
         }
 
         loadFilteredMovies()
-    }, [mood])
+    }, [mood, storedRound])
+
+    useEffect(() => {
+        if(!session || deckMovies.length === 0) {
+            return
+        }
+        const roundToSave: StoredRound = {
+            session: session,
+            deckMovies: deckMovies,
+            currentMovieIndex: currentMovieIndex,
+            currentParticipantIndex: currentParticipantIndex,
+            likedMovieIds: likedMovieIds,
+            chooseStage: chooseStage,
+        }
+        saveStoredRound(roundToSave)
+
+    }, [session,
+        movies,
+        currentMovieIndex,
+        currentParticipantIndex,
+        likedMovieIds,
+        chooseStage])
+
+    function advanceAfterDecision() {
+        if( currentMovieIndex === deckMovies.length - 1 ) {
+            if(session?.watchMode === 'solo' ) {
+                setChooseStage('results')
+            }
+            if (session?.watchMode === 'group' && currentParticipantIndex + 1 < participants.length ){
+                setCurrentParticipantIndex((currentParticipantIndex) => currentParticipantIndex +1)
+                setChooseStage('handoff')
+            }
+            if(session?.watchMode === 'group' && currentParticipantIndex +1 === participants.length ){
+                setChooseStage('results')
+            }
+        }
+        else {
+            setCurrentMovieIndex((currentMovieIndex) => currentMovieIndex + 1)
+        }
+
+    }
+    function startNextTurn() {
+        setCurrentMovieIndex(0)
+        setChooseStage('choosing')
+    }
 
     function handleSkip() {
-        setCurrentMovieIndex((currentIndex) => currentIndex + 1)
+       advanceAfterDecision()
     }
     function handleLike() {
         if(!currentMovie) {
             return
         }
-        setLikedMovieIds((previousIds) => {
-            if(previousIds.includes(currentMovie.id)){
-                return previousIds
+        setLikedMovieIds((previousLikesByParticipant) => {
+            const currentParticipantLikes =
+                previousLikesByParticipant[currentParticipant.id] ?? []
+            if(currentParticipantLikes.includes(currentMovie.id)){
+                return previousLikesByParticipant
             }
-            return[ ...previousIds , currentMovie.id]
+            return{
+                ...previousLikesByParticipant,
+                [currentParticipant.id]: [
+                ...currentParticipantLikes,
+                currentMovie.id,
+            ],
+            }
 
         })
-        setCurrentMovieIndex((currentIndex) => currentIndex + 1)
+        advanceAfterDecision()
     }
 
     function handlePointerDown(event:PointerEvent<HTMLDivElement>) {
@@ -155,24 +224,30 @@ export function ChoosePage() {
     if(!session) {
         return <Navigate  to="/setup" replace />
     }
-
-    const people = [
-        session.hostName,
-        ...session.friends.map((friend) => friend.name),
+    const participants = [
+        session.host,
+        ...session.friends,
     ]
 
-    const likedMovies = movies.filter((movie) => likedMovieIds.includes(movie.id))
+    const people = participants.map((participant) => participant.name)
 
-    const bestMovie =  likedMovies.length > 0
-        ? likedMovies.reduce((bestMovie, movie) => {
+    const currentParticipant = participants[currentParticipantIndex]
+
+    const matchedMovies =
+        deckMovies.filter((movie) =>
+            participants.every((participant) =>
+                (likedMovieIds[participant.id] ?? []).includes(movie.id)
+    ))
+    const bestMovie =  matchedMovies.length > 0
+        ? matchedMovies.reduce((bestMovie, movie) => {
        if(bestMovie.vote_average > movie.vote_average) {
            return bestMovie
        }
        return movie
     }) : null
 
-    const otherLikedMovies = bestMovie
-        ? likedMovies.filter((movie) => movie.id !== bestMovie.id)
+    const otherMatchedMovies = bestMovie
+        ? matchedMovies.filter((movie) => movie.id !== bestMovie.id)
         : []
 
     let likeOpacity
@@ -187,6 +262,118 @@ export function ChoosePage() {
     } else {
         skipOpacity = Math.min(Math.max(dragX / SWIPE_THRESHOLD.skip, 0), 1)
     }
+
+    if(chooseStage === 'handoff') {
+        return (
+            <main className="app">
+                <div className="app-content">
+                    <section className="handoff-screen">
+                        <div className="handoff-top">
+                            <p className="eyebrow">NEXT TURN</p>
+
+                            <p className="handoff-progress">
+                                {currentParticipantIndex + 1} OF {participants.length} PEOPLE
+                            </p>
+                        </div>
+
+                        <div className="handoff-message">
+                            <h1>
+                                Pass the phone <br />
+                                to {currentParticipant.name}.
+                            </h1>
+
+                            <p className="handoff-privacy">Your choices stay private.</p>
+
+                            <p className="handoff-copy">
+                                Take your time — there are 12 films in this round.
+                            </p>
+                        </div>
+
+                        <button
+                            className="primary-button"
+                            type="button"
+                            onClick={startNextTurn}
+                        >
+                            I’m {currentParticipant.name} →
+                        </button>
+                    </section>
+                </div>
+            </main>
+        )
+    }
+
+    if(chooseStage === 'results') {
+        return (
+            <main className="app">
+                <header className='results-header'>
+                    <Link
+                        className='back-link'
+                        to="/"
+                        onClick={clearStoredRound}
+                    >
+                        ← Back To Home
+                    </Link>
+
+                    <Link
+                        className="brand"
+                        to="/"
+                        aria-label="Tonight home"
+                        onClick={clearStoredRound}
+                    >
+                        tonight<span>•</span>
+                    </Link>
+                </header>
+                <div className={bestMovie ? 'app-content' : 'app-content empty-results-content'}>
+
+                    <p className="eyebrow">YOUR MOVIE DECK</p>
+                {bestMovie ? (
+                    <article>
+                        <h2>Tonight’s pick</h2>
+                        <MovieCard movie={bestMovie} showOverview/>
+                       {isGroupMode ? (
+                           <small className="top-pick-text"> ⓘ Chosen from films everyone liked, based on the highest TMDB rating. </small>
+                        ) : (
+                           <small className="top-pick-text">  ⓘ Chosen from your likes based on the highest TMDB rating.</small>
+                            )}
+
+
+
+                        {otherMatchedMovies.length > 0 && (
+                            <>
+                                {isGroupMode ?
+                                    ( <h4>More matches</h4>) : ( <h4>Movies you liked</h4>)
+                                }
+                                <div className="movie-grid">
+                                    { otherMatchedMovies.map((movie) =>(
+                                        <MovieCard  key={movie.id} movie={movie}/>
+                                    ))}
+                                </div>
+                            </>
+                        )}
+                    </article>
+
+                ) : (
+                    <>
+                        <div className="empty-results-message">
+                            <h2>Nothing saved this time.</h2>
+                            <p>Choose a different mood and we’ll build a new movie deck.</p>
+                        </div>
+
+                        <Link
+                            className="primary-button"
+                            to="/setup"
+                            state={{ previousSession: session }}
+                            onClick={clearStoredRound}
+                        >
+                            Choose a mood
+                        </Link>
+                    </>
+                )}
+                </div>
+            </main>
+        )
+    }
+    if(chooseStage === 'choosing') {
     return (
         <main className="app">
             <div style={{ opacity: likeOpacity }} className="swipe-feedback swipe-feedback-like">
@@ -199,7 +386,7 @@ export function ChoosePage() {
             <p className="eyebrow">YOUR MOVIE DECK</p>
 
             <h1>
-                Ready, {session.hostName}.
+                Ready, {currentParticipant.name}.
                 <br />
                 Let’s find tonight’s film.
             </h1>
@@ -243,46 +430,10 @@ export function ChoosePage() {
                     </div>
                 </section>
             )}
-            {!isLoading && !errorMessage && !currentMovie && (
-              <div>
 
-                  {bestMovie ? (
-                      <article>
-                          <h2>Tonight’s pick</h2>
-                      <MovieCard movie={bestMovie} showOverview/>
-                      <small className="top-pick-text">ⓘ Chosen from your likes based on the highest TMDB rating.</small>
-
-
-                          {otherLikedMovies.length > 0 && (
-                          <>
-                          <h4> Movies you liked</h4>
-                              <div className="movie-grid">
-                                  { otherLikedMovies.map((movie) =>(
-                                      <MovieCard  key={movie.id} movie={movie}/>
-                                  ))}
-                              </div>
-                          </>
-                          )}
-                      </article>
-
-                  ) : (
-                      <>
-                          <h2>Nothing saved this time.</h2>
-                          <p>Choose a different mood and we’ll build a new movie deck.</p>
-
-                          <Link to="/setup" className="primary-button">
-                              Choose a mood
-                          </Link>
-                      </>
-                  )}
-
-
-
-
-              </div>
-            )}
 
             </div>
         </main>
     )
+}
 }

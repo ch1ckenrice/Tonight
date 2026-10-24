@@ -1,10 +1,12 @@
-import { Link } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useState } from 'react'
 import type {Mood, Participant, TonightSession, WatchMode} from '../types/session'
-import { useNavigate } from 'react-router-dom'
 
 
 type SetupStep = 'mode' | 'host' | 'preferences'
+type SetupLocationState = {
+    previousSession?: TonightSession
+}
 
 
 
@@ -38,17 +40,34 @@ const moodOptions: {
 
 function SetupPage() {
 
+    const location = useLocation()
     const navigate = useNavigate()
+    const locationState = location.state as SetupLocationState | null
+    const previousSession = locationState?.previousSession
 
-    const [watchMode, setWatchMode] = useState<WatchMode>('solo')
-    const [setupStep, setSetupStep] = useState<SetupStep>('mode')
-    const [hostName, setHostName] = useState('')
-    const [friends, setFriends] = useState<Participant[]>(() => [
-        {
-            id: crypto.randomUUID(),
-            name: ''
-        }
-    ])
+    const [watchMode, setWatchMode] = useState<WatchMode>(
+        previousSession?.watchMode ?? 'solo',
+    )
+
+    const [setupStep, setSetupStep] = useState<SetupStep>(
+        previousSession ? 'preferences' : 'mode',
+    )
+
+    const [hostName, setHostName] = useState(
+        previousSession?.host.name ?? '',
+    )
+
+    const [friends, setFriends] = useState<Participant[]>(() =>
+        previousSession?.friends.length
+            ? previousSession.friends
+            : [
+                {
+                    id: crypto.randomUUID(),
+                    name: '',
+                },
+            ],
+    )
+
     const [selectedMood, setSelectedMood] = useState<Mood | null>(null)
 
     function updateFriendName(friendId: string, name: string) {
@@ -86,7 +105,10 @@ function SetupPage() {
         }
         const session : TonightSession = {
             watchMode,
-            hostName: hostName.trim(),
+            host: {
+                id: crypto.randomUUID(),
+                name: hostName.trim()
+            },
             friends:
             watchMode === 'group'
             ? friends.map((friend) =>({

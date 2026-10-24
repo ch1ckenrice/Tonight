@@ -703,6 +703,80 @@
   max-width: 20rem;
   margin: 1rem auto 0;
 }
+
+.handoff-screen {
+  display: grid;
+  min-height: calc(100svh - 4rem);
+  grid-template-rows: auto 1fr auto;
+  padding: 1.5rem 0 2rem;
+}
+
+.handoff-progress {
+  display: inline-flex;
+  width: fit-content;
+  margin: 0 0 1.25rem;
+  padding: 0.4rem 0.65rem;
+  border: 1px solid rgba(248, 245, 242, 0.14);
+  border-radius: 999px;
+  color: #b9b2aa;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.handoff-screen h1 {
+  max-width: 18rem;
+}
+
+.handoff-privacy {
+  margin: 1.5rem 0 0;
+  color: #ef7d4d;
+  font-weight: 700;
+}
+
+.handoff-copy {
+  max-width: 19rem;
+  margin: 0.5rem 0 0;
+  color: #b9b2aa;
+  line-height: 1.6;
+}
+.handoff-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.handoff-top .eyebrow,
+.handoff-top .handoff-progress {
+  margin: 0;
+}
+
+.handoff-message {
+  align-self: center;
+}
+
+.handoff-screen > .primary-button {
+  margin-top: 2rem;
+}
+.results-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+
+.empty-results-content {
+  display: grid;
+  min-height: calc(100svh - 9rem);
+  grid-template-rows: auto 1fr auto;
+  padding: 1.5rem 0 2rem;
+}
+
+.empty-results-message {
+  align-self: center;
+}
+
 @media (min-width: 640px) {
   .app {
     padding: 28px 36px;
