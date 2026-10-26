@@ -5,12 +5,16 @@ import {
     type TmdbMovie,
 } from '../services/tmdb'
 import { MovieCard } from '../components/MovieCard'
+import {getRecentRound} from "../services/roundStorage.ts";
+import type {RecentRound} from "../types/round.ts";
+import {LastMovieNight} from "../components/LastMovieNight.tsx";
 
 function HomePage() {
 
     const [movies, setMovies] = useState<TmdbMovie[]>([])
     const [isLoading, setIsLoading] = useState(true)
     const [errorMessage, setErrorMessage] = useState('')
+    const [recentRound] = useState<RecentRound | null>(() => getRecentRound())
 
     useEffect(() => {
         async function loadMovies() {
@@ -60,8 +64,13 @@ function HomePage() {
                 </ul>
             </section>
 
-            <section>
-                <h2>Popular tonight</h2>
+            {recentRound && <LastMovieNight recentRound={recentRound} />}
+
+            <section
+                className="popular-section"
+                aria-labelledby="popular-title"
+            >
+                <h2 id="popular-title">Popular tonight</h2>
 
                 {isLoading && <p>Loading movies...</p>}
 
@@ -75,6 +84,7 @@ function HomePage() {
                    </div>
                 )}
             </section>
+
 
             <section className="how-it-works" aria-labelledby="how-it-works-title">
                 <p className="eyebrow">HOW IT WORKS</p>

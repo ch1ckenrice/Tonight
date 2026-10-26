@@ -4,8 +4,8 @@ import {useEffect, useRef, useState, type PointerEvent } from "react";
 import {getMoviesForMood, type TmdbMovie} from "../services/tmdb.ts";
 import { MovieCard } from '../components/MovieCard'
 import {SwipeMovieCard} from "../components/SwipeMovieCard.tsx";
-import type {ChooseStage, LikedMovieIdsByParticipant, StoredRound} from "../types/round.ts";
-import {clearStoredRound, getStoredRound, saveStoredRound} from "../services/roundStorage.ts";
+import type {ChooseStage, LikedMovieIdsByParticipant, RecentRound, StoredRound} from "../types/round.ts";
+import {clearStoredRound, getStoredRound, saveRecentRound, saveStoredRound} from "../services/roundStorage.ts";
 
 const SWIPE_THRESHOLD = {
     like: 110,
@@ -263,6 +263,22 @@ export function ChoosePage() {
         skipOpacity = Math.min(Math.max(dragX / SWIPE_THRESHOLD.skip, 0), 1)
     }
 
+    function handleFinishRound() {
+        if (bestMovie && session) {
+            const recentRound: RecentRound = {
+                bestMovie,
+                mood: session.mood,
+                watchMode: session.watchMode,
+                participantCount: participants.length,
+                completedAt: new Date().toISOString(),
+            }
+
+            saveRecentRound(recentRound)
+        }
+
+        clearStoredRound()
+    }
+
     if(chooseStage === 'handoff') {
         return (
             <main className="app">
@@ -309,7 +325,7 @@ export function ChoosePage() {
                     <Link
                         className='back-link'
                         to="/"
-                        onClick={clearStoredRound}
+                        onClick={handleFinishRound}
                     >
                         ← Back To Home
                     </Link>
@@ -318,7 +334,7 @@ export function ChoosePage() {
                         className="brand"
                         to="/"
                         aria-label="Tonight home"
-                        onClick={clearStoredRound}
+                        onClick={handleFinishRound}
                     >
                         tonight<span>•</span>
                     </Link>

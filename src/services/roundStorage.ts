@@ -1,12 +1,13 @@
-import type {StoredRound} from "../types/round";
+import type {RecentRound, StoredRound} from "../types/round";
 
-const tonightActiveRound = 'ACTIVE_ROUND_KEY'
+const ACTIVE_ROUND_KEY = 'tonight-active-round'
+const RECENT_ROUND_KEY = 'tonight-recent-round'
 
 export function saveStoredRound(round: StoredRound): void {
-    localStorage.setItem(tonightActiveRound,JSON.stringify(round))
+    localStorage.setItem(ACTIVE_ROUND_KEY,JSON.stringify(round))
 }
 export function getStoredRound(): StoredRound | null {
-    const storedRound = localStorage.getItem(tonightActiveRound)
+    const storedRound = localStorage.getItem(ACTIVE_ROUND_KEY)
     try {
         if(storedRound === null) {
             return null;
@@ -18,6 +19,24 @@ export function getStoredRound(): StoredRound | null {
     }
 }
 export function clearStoredRound(): void {
-    localStorage.removeItem(tonightActiveRound)
+    localStorage.removeItem(ACTIVE_ROUND_KEY)
+}
+
+export function saveRecentRound(round: RecentRound): void {
+    localStorage.setItem(RECENT_ROUND_KEY,JSON.stringify(round))
+}
+
+export function getRecentRound(): RecentRound | null {
+    const storedRecentRound = localStorage.getItem(RECENT_ROUND_KEY)
+    try {
+        if(storedRecentRound === null) {
+            return null;
+        }
+        return JSON.parse(storedRecentRound) as RecentRound
+    }
+    catch(error) {
+        console.error(error)
+        return null
+    }
 }
 
