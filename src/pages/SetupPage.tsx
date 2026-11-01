@@ -1,6 +1,7 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useState } from 'react'
 import type {Mood, Participant, TonightSession, WatchMode} from '../types/session'
+import {moodOptions} from "../data/moodOptions.ts";
 
 
 type SetupStep = 'mode' | 'host' | 'preferences'
@@ -8,35 +9,9 @@ type SetupLocationState = {
     previousSession?: TonightSession
 }
 
+type SelectedMode = WatchMode | 'online'
 
 
-const moodOptions: {
-    value: Mood
-    title: string
-    description: string
-}[] = [
-    {
-        value: 'easy',
-        title: 'Easy watch',
-        description: 'Light, warm and effortless.',
-    },
-    {
-        value: 'fun',
-        title: 'Make us laugh',
-        description: 'Something playful and entertaining.',
-    },
-    {
-        value: 'tense',
-        title: 'Keep us hooked',
-        description: 'Suspense, mystery or high stakes.',
-    },
-    {
-        value: 'thoughtful',
-        title: 'Give us something to think about',
-        description: 'Emotional, ambitious or meaningful.',
-    },
-
-]
 
 function SetupPage() {
 
@@ -45,7 +20,7 @@ function SetupPage() {
     const locationState = location.state as SetupLocationState | null
     const previousSession = locationState?.previousSession
 
-    const [watchMode, setWatchMode] = useState<WatchMode>(
+    const [selectedMode, setSelectedMode] = useState<SelectedMode>(
         previousSession?.watchMode ?? 'solo',
     )
 
@@ -100,17 +75,17 @@ function SetupPage() {
     }
 
     function handleStart() {
-        if(!watchMode || !selectedMood) {
+        if (selectedMode === 'online' || !selectedMood) {
             return
         }
         const session : TonightSession = {
-            watchMode,
+            watchMode: selectedMode,
             host: {
                 id: crypto.randomUUID(),
                 name: hostName.trim()
             },
             friends:
-            watchMode === 'group'
+            selectedMode === 'group'
             ? friends.map((friend) =>({
                 ...friend,
                 name:friend.name.trim()
@@ -121,10 +96,20 @@ function SetupPage() {
         navigate('/choose', {state: session})
     }
 
+    function handleModeContinue() {
+        if (selectedMode === 'online') {
+            navigate('/room/new')
+            return
+        }
+
+        setSetupStep('host')
+    }
+
     const canContinue =
         hostName.trim().length > 0 &&
-        (watchMode === 'solo' ||
-        friends.every((friend) => friend.name.trim().length > 0))
+        (selectedMode === 'solo' ||
+            (selectedMode === 'group' &&
+                friends.every((friend) => friend.name.trim().length > 0)))
 
     if(setupStep === 'preferences'){
         return (
@@ -213,7 +198,7 @@ function SetupPage() {
                     placeholder="e.g. Oksana"
                     onChange={(e) => setHostName(e.target.value)}
                     />
-                    {watchMode === 'group' && (
+                    {selectedMode === 'group' && (
                         <div className='friends-section' aria-labelledby='friends-title'>
                             <div className='friends-heading'>
                                 <div>
@@ -297,11 +282,11 @@ function SetupPage() {
                 <div className="mode-options">
                     <button
                         className={`mode-card ${
-                        watchMode === 'solo' ? 'is-selected' : ''
+                        selectedMode === 'solo' ? 'is-selected' : ''
                     }`}
                             type='button'
-                            aria-pressed={watchMode === 'solo'}
-                            onClick={() => setWatchMode('solo')}
+                            aria-pressed={selectedMode === 'solo'}
+                            onClick={() => setSelectedMode('solo')}
                     >
                          <span className="mode-icon" aria-hidden="true">
               01
@@ -315,11 +300,11 @@ function SetupPage() {
 
                     <button
                     className={`mode-card ${
-                        watchMode === 'group' ? 'is-selected' : ''
+                        selectedMode === 'group' ? 'is-selected' : ''
                     }`}
                     type='button'
-                    aria-pressed={watchMode === 'group'}
-                    onClick={() => setWatchMode('group')}
+                    aria-pressed={selectedMode === 'group'}
+                    onClick={() => setSelectedMode('group')}
                     >
                          <span className="mode-icon" aria-hidden="true">
               02+
@@ -330,17 +315,39 @@ function SetupPage() {
               <small>Pass the phone and find a match together.</small>
             </span>
                     </button>
+                    <button
+                        className={`mode-card ${
+                            selectedMode === 'online' ? 'is-selected' : ''
+                        }`}
+                        type="button"
+                        aria-pressed={selectedMode === 'online'}
+                        onClick={() => setSelectedMode('online')}
+                    >
+                    <span className="mode-icon" aria-hidden="true">
+                        ↗
+                    </span>
+                    <span>
+                        <strong>Online room</strong>
+                        <small>Invite friends by link and choose from separate devices.</small>
+                    </span>
+                    </button>
+
                 </div>
 
                 <button
                     className="primary-button"
                     type="button"
-                    disabled={!watchMode}
-                    onClick={() => setSetupStep('host')}
+                    disabled={!selectedMode}
+                    onClick={handleModeContinue}
                 >
-                    {watchMode === 'group' ? 'Choose participants' : 'Continue'}
+                    {selectedMode === 'online'
+                        ? 'Create online room'
+                        : selectedMode === 'group'
+                            ? 'Choose participants'
+                            : 'Continue'}
                     <span aria-hidden="true">→</span>
                 </button>
+
             </section>
         </main>
     )

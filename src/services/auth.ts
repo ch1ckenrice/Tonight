@@ -29,3 +29,16 @@ export async function ensureAnonymousUser() {
 
     return newUser
 }
+
+export async function getCurrentUserId(): Promise<string> {
+    const {
+        data:{ session },
+        error,
+    } = await supabase.auth.getSession()
+
+    if(error) throw error
+
+    if(!session?.user) throw new Error('Authentication session is missing')
+
+    return session.user.id
+}

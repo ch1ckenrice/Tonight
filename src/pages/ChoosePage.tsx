@@ -6,6 +6,7 @@ import { MovieCard } from '../components/MovieCard'
 import {SwipeMovieCard} from "../components/SwipeMovieCard.tsx";
 import type {ChooseStage, LikedMovieIdsByParticipant, RecentRound, StoredRound} from "../types/round.ts";
 import {clearStoredRound, getStoredRound, saveRecentRound, saveStoredRound} from "../services/roundStorage.ts";
+import { Footer } from '../components/Footer.tsx'
 
 const SWIPE_THRESHOLD = {
     like: 110,
@@ -386,6 +387,7 @@ export function ChoosePage() {
                     </>
                 )}
                 </div>
+                <Footer />
             </main>
         )
     }

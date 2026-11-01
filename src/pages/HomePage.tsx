@@ -8,6 +8,7 @@ import { MovieCard } from '../components/MovieCard'
 import {getRecentRound} from "../services/roundStorage.ts";
 import type {RecentRound} from "../types/round.ts";
 import {LastMovieNight} from "../components/LastMovieNight.tsx";
+import { Footer } from '../components/Footer.tsx'
 
 function HomePage() {
 
@@ -116,6 +117,8 @@ function HomePage() {
                     </li>
                 </ol>
             </section>
+
+            <Footer />
         </main>
     )
 }

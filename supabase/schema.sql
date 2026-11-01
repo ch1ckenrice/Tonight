@@ -259,3 +259,125 @@ with check (
     private.is_own_vote(room_id, user_id, movie_id)
     and private.get_room_status(room_id) = 'choosing'
     );
+
+create function public.create_online_room(host_name text)
+    returns public.rooms
+language plpgsql
+security invoker
+set search_path = ''
+as $$
+declare
+new_room public.rooms;
+begin
+  if
+(
+select auth.uid()) is null then
+    raise exception 'Authentication is required';
+end if;
+
+insert into public.rooms (host_user_id)
+values ((select auth.uid())) returning *
+into new_room;
+
+insert into public.room_members (room_id, user_id, name)
+values (new_room.id,
+        (select auth.uid()),
+        pg_catalog.btrim(host_name));
+
+return new_room;
+end;
+$$;
+
+revoke all on function public.create_online_room(text) from public;
+
+grant
+execute
+on
+function
+public
+.
+create_online_room
+(text) to authenticated;
+
+create or replace function public.join_online_room(
+    target_room_id uuid,
+    member_name text
+)
+    returns public.room_members
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+joined_member public.room_members;
+begin
+  if
+(
+select auth.uid()) is null then
+    raise exception 'Authentication is required';
+end if;
+
+  if
+private.get_room_status(target_room_id) is distinct from 'lobby' then
+    raise exception 'This room is not available to join';
+end if;
+
+insert into public.room_members (room_id, user_id, name)
+values (target_room_id,
+        (select auth.uid()),
+        pg_catalog.btrim(member_name)) on conflict (room_id, user_id) do
+update
+    set name = excluded.name
+    returning *
+into joined_member;
+
+return joined_member;
+end;
+$$;
+
+revoke all on function public.join_online_room(uuid, text) from public;
+
+grant
+execute
+on
+function
+public
+.
+join_online_room
+(uuid, text) to authenticated;
+
+alter publication supabase_realtime add table public.rooms;
+alter publication supabase_realtime add table public.room_members;
+
+create or replace function public.finish_room_when_everyone_is_done()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if new.is_finished = true and old.is_finished is distinct from true then
+    if not exists (
+      select 1
+      from public.room_members
+      where room_id = new.room_id
+        and is_finished = false
+    ) then
+update public.rooms
+set status = 'results'
+where id = new.room_id
+  and status = 'choosing';
+end if;
+end if;
+
+return new;
+end;
+$$;
+
+drop trigger if exists finish_room_when_everyone_is_done
+on public.room_members;
+
+create trigger finish_room_when_everyone_is_done
+    after update of is_finished on public.room_members
+    for each row
+    execute function public.finish_room_when_everyone_is_done();
