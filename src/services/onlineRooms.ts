@@ -113,16 +113,11 @@ export async function startOnlineRound(
     if (deckMovies.length === 0) {
         throw new Error('Movie deck is empty')
     }
-    const {data, error} = await supabase
-        .from('rooms')
-        .update({
-            mood: mood,
-            deck_movies: deckMovies,
-            status: 'choosing'
-        })
-        .eq('id', roomId)
-        .select()
-        .single()
+    const {data, error} = await supabase.rpc('start_online_round', {
+        target_room_id: roomId,
+        selected_mood: mood,
+        selected_deck_movies: deckMovies,
+    })
 
     if (error) {
         throw error
@@ -141,18 +136,11 @@ export async function saveOnlineVote(
     if (!roomId) {
         throw new Error('Room ID is missing')
     }
-    const currentUserId = await getCurrentUserId()
-    const { error} = await supabase
-    .from('movie_votes')
-        .upsert({
-            room_id: roomId,
-            user_id: currentUserId,
-            movie_id: movieId,
-            is_liked: isLiked,
-        },
-            {
-                onConflict: 'room_id,user_id,movie_id',
-            })
+    const { error } = await supabase.rpc('save_online_vote', {
+        target_room_id: roomId,
+        target_movie_id: movieId,
+        selected_is_liked: isLiked,
+    })
 
 if (error) {
     throw error
@@ -198,14 +186,9 @@ export async function markMyRoomMemberFinished(roomId: string): Promise<void> {
     if (!roomId) {
         throw new Error('Room ID is missing')
     }
-    const currentUserId = await getCurrentUserId()
-    const {error} = await supabase
-    .from('room_members')
-        .update({
-            is_finished: true,
-        })
-        .eq('room_id', roomId)
-        .eq('user_id', currentUserId)
+    const { error } = await supabase.rpc('finish_online_selection', {
+        target_room_id: roomId,
+    })
 
     if (error) {
         throw error

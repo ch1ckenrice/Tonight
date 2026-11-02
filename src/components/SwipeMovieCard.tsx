@@ -11,7 +11,7 @@ export function SwipeMovieCard({ movie, showOverview = false}: SwipeMovieCardPro
             {movie.poster_path ? (
             <img  className="swipe-movie-card-image"
                   src={getPosterUrl(movie.poster_path)}
-                  alt={`Постер фільму ${movie.title}`}
+                  alt={`Poster for ${movie.title}`}
                   draggable={false}/>
             ) :  (
                     <div className="swipe-movie-card-placeholder">No poster</div>

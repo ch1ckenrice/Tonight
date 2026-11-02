@@ -1,4 +1,4 @@
-import { Link, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 import type { MovieVote, OnlineRoom, OnlineRoomMember } from '../types/onlineRoom.ts'
 import { getOnlineRoom, getOnlineRoomVotes, getRoomMembers } from '../services/onlineRooms.ts'
@@ -6,10 +6,13 @@ import { MovieCard } from '../components/MovieCard.tsx'
 import type { RecentRound } from '../types/round'
 import { saveRecentRound } from '../services/roundStorage.ts'
 import { Footer } from '../components/Footer.tsx'
+import { PageState } from '../components/PageState.tsx'
+import { getOnlineRoomRoute } from '../utils/onlineRoomRoute.ts'
 
 export function OnlineResultsPage() {
 
     const { roomId } = useParams()
+    const navigate = useNavigate()
     const [room, setRoom] = useState<OnlineRoom | null>(null)
     const [members, setMembers] = useState<OnlineRoomMember[]>([])
     const [votes, setVotes] = useState<MovieVote[]>([])
@@ -47,21 +50,45 @@ export function OnlineResultsPage() {
 
     }, [roomId])
 
+    useEffect(() => {
+        if (!room) {
+            return
+        }
+
+        const roomRoute = getOnlineRoomRoute(room)
+
+        if (roomRoute !== `/room/${room.id}/results`) {
+            navigate(roomRoute, { replace: true })
+        }
+    }, [room, navigate])
 
 
     if(isLoading) {
-        return (
-        <main className="app">
-            <h1>Loading...</h1>
-        </main>
-        )
+        return <PageState eyebrow="ONLINE MOVIE NIGHT" title="Loading results..." isLoading />
     }
     if (errorMessage) {
-        return <main className="app">{errorMessage}</main>
+        return (
+            <PageState
+                eyebrow="ONLINE MOVIE NIGHT"
+                title="Could not load this movie night."
+                message={errorMessage}
+                actionLabel="Back home"
+            />
+        )
     }
 
     if (!room) {
-        return <main className="app">Room not found</main>
+        return <PageState title="Room not found." actionLabel="Back home" />
+    }
+
+    if (room.status !== 'results') {
+        return (
+            <PageState
+                eyebrow="ONLINE MOVIE NIGHT"
+                title="Taking you to your room..."
+                message="Results are available after everyone has finished choosing."
+            />
+        )
     }
 
     const matchedMovies = room.deck_movies.filter((movie) =>
@@ -93,14 +120,12 @@ export function OnlineResultsPage() {
 
   if(!bestMovie) {
       return (
-          <main className="app">
-              <div className="app-content">
-                  <p>No movie recommendation was found for this room.</p>
-                  <Link className="primary-button" to="/">
-                      Back to home
-                  </Link>
-              </div>
-          </main>
+          <PageState
+              eyebrow="ONLINE MOVIE NIGHT"
+              title="No recommendation found."
+              message="This room did not contain enough saved votes to choose a film."
+              actionLabel="Back home"
+          />
       )
   }
     const otherMatchedMovies = matchedMovies.filter(
@@ -124,7 +149,7 @@ export function OnlineResultsPage() {
     }
 
     return (
-        <main className="app">
+        <main className="app results-page">
             <header className='results-header'>
                 <Link
                     className='back-link'
@@ -143,12 +168,12 @@ export function OnlineResultsPage() {
                     tonight<span>•</span>
                 </Link>
             </header>
-            <div className="app-content">
+            <div className="app-content results-content">
 
                 <p className="eyebrow">YOUR MOVIE DECK</p>
                 <article>
                     <h2>Tonight’s pick</h2>
-                    <MovieCard movie={bestMovie} showOverview />
+                    <MovieCard className="results-featured-card" movie={bestMovie} showOverview />
 
                     <small className="top-pick-text">
                         {matchedMovies.length > 0

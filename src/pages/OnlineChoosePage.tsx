@@ -1,8 +1,9 @@
-import {type PointerEvent, useEffect, useRef, useState} from 'react'
+import {type PointerEvent, type TransitionEvent, useEffect, useRef, useState} from 'react'
 import {useNavigate, useParams} from 'react-router-dom'
 import { SwipeMovieCard } from '../components/SwipeMovieCard'
 import {
     getMyOnlineVotes,
+    getMyRoomMember,
     getOnlineRoom,
     getRoomMembers,
     markMyRoomMemberFinished,
@@ -10,6 +11,8 @@ import {
 } from '../services/onlineRooms'
 import type {OnlineRoom, OnlineRoomMember} from '../types/onlineRoom'
 import {supabase} from "../services/supabase.ts";
+import { PageState } from '../components/PageState.tsx'
+import { getOnlineRoomRoute } from '../utils/onlineRoomRoute.ts'
 
 const SWIPE_THRESHOLD = {
     like: 110,
@@ -62,6 +65,10 @@ export function OnlineChoosePage() {
             : 'transform 620ms cubic-bezier(0.4, 0, 0.2, 1)',
     }
     function handlePointerDown(event:PointerEvent<HTMLDivElement>) {
+        if (isSavingDecision || exitDirection !== null) {
+            return
+        }
+
         event.currentTarget.setPointerCapture(event.pointerId)
         dragXRef.current = 0
         dragStartX.current = event.clientX
@@ -86,7 +93,11 @@ export function OnlineChoosePage() {
         setDragX(0)
     }
 
-    async function handleCardTransitionEnd() {
+    async function handleCardTransitionEnd(event: TransitionEvent<HTMLDivElement>) {
+        if (event.target !== event.currentTarget || event.propertyName !== 'transform') {
+            return
+        }
+
         if (exitDirection === null || !roomId) {
             return
         }
@@ -164,10 +175,11 @@ export function OnlineChoosePage() {
                 setIsLoading(true)
                 setErrorMessage('')
 
-                const [loadedRoom, savedVotes,loadedMembers] = await Promise.all([
+                const [loadedRoom, savedVotes, loadedMembers, currentMember] = await Promise.all([
                     getOnlineRoom(roomId),
                     getMyOnlineVotes(roomId),
-                    getRoomMembers(roomId)
+                    getRoomMembers(roomId),
+                    getMyRoomMember(roomId),
                 ])
 
                 const votedMovieIds = new Set(
@@ -176,12 +188,24 @@ export function OnlineChoosePage() {
                 const nextMovieIndex = loadedRoom.deck_movies.findIndex(
                     (movie) => !votedMovieIds.has(movie.id)
                 )
-                setMembers(loadedMembers)
+                let membersForState = loadedMembers
+
+                if (
+                    nextMovieIndex === -1 &&
+                    loadedRoom.status === 'choosing' &&
+                    currentMember !== null &&
+                    !currentMember.is_finished
+                ) {
+                    await markMyRoomMemberFinished(roomId)
+                    membersForState = await getRoomMembers(roomId)
+                }
+
+                setMembers(membersForState)
 
                 setCurrentMovieIndex(
                     nextMovieIndex === -1
-                    ? loadedRoom.deck_movies.length
-                    : nextMovieIndex
+                        ? loadedRoom.deck_movies.length
+                        : nextMovieIndex,
                 )
 
                 setRoom(loadedRoom)
@@ -196,10 +220,16 @@ export function OnlineChoosePage() {
     }, [roomId])
 
     useEffect(() => {
-        if (room?.status === 'results' && roomId) {
-            navigate(`/room/${roomId}/results`)
+        if (!room) {
+            return
         }
-    }, [room?.status, roomId, navigate])
+
+        const roomRoute = getOnlineRoomRoute(room)
+
+        if (roomRoute !== `/room/${room.id}/choose`) {
+            navigate(roomRoute, { replace: true })
+        }
+    }, [room, navigate])
 
     useEffect(() => {
         if (!roomId) {
@@ -254,10 +284,7 @@ export function OnlineChoosePage() {
                     filter: `id=eq.${roomId}`,
                 },
                 (payload) => {
-                    if(payload.new.status !== 'results') {
-                        return
-                    }
-                    navigate(`/room/${roomId}/results`)
+                    setRoom(payload.new as OnlineRoom)
                 }
             )
             .subscribe()
@@ -290,15 +317,23 @@ export function OnlineChoosePage() {
     }
 
     if (isLoading) {
-        return <main className="app">Loading movies...</main>
+        return <PageState eyebrow="ONLINE MOVIE NIGHT" title="Loading your movie deck..." isLoading />
     }
 
     if (errorMessage) {
-        return <main className="app">{errorMessage}</main>
+        return (
+            <PageState
+                eyebrow="ONLINE MOVIE NIGHT"
+                title="Could not load this movie deck."
+                message={errorMessage}
+                actionLabel="Back to room"
+                actionTo={roomId ? `/room/${roomId}` : '/'}
+            />
+        )
     }
 
     if (!room) {
-        return <main className="app">Room not found</main>
+        return <PageState title="Room not found." actionLabel="Back home" />
     }
 
     if (!currentMovie) {
@@ -321,25 +356,27 @@ export function OnlineChoosePage() {
     }
 
     return (
-        <main className="app">
-            <div style={{ opacity: likeOpacity }} className="swipe-feedback swipe-feedback-like">
+        <main className="app online-choose-page">
+            <div aria-hidden="true" style={{ opacity: likeOpacity }} className="swipe-feedback swipe-feedback-like">
                 <span className="swipe-label swipe-label-like">LIKE</span>
             </div>
-            <div style={{ opacity: skipOpacity }} className="swipe-feedback swipe-feedback-skip">
+            <div aria-hidden="true" style={{ opacity: skipOpacity }} className="swipe-feedback swipe-feedback-skip">
                 <span className="swipe-label swipe-label-skip">SKIP</span>
             </div>
-            <div className="app-content">
-                <p className="eyebrow">YOUR MOVIE DECK</p>
+            <div className="app-content choice-page-content">
+                <div className="choice-copy">
+                    <p className="eyebrow">YOUR MOVIE DECK</p>
 
-                <h1>Pick what you would watch tonight.</h1>
+                    <h1>Pick what you would watch tonight.</h1>
 
-                <p className="hero-copy">
-                    Your choices stay private until everyone finishes.
-                </p>
+                    <p className="hero-copy">
+                        Your choices stay private until everyone finishes.
+                    </p>
 
-                <p className="deck-progress">
-                    {currentMovieIndex + 1} of {deckMovies.length}
-                </p>
+                    <p className="deck-progress">
+                        {currentMovieIndex + 1} of {deckMovies.length}
+                    </p>
+                </div>
 
                 <section className="choice-stage">
                     <div

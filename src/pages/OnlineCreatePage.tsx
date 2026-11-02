@@ -1,12 +1,10 @@
-import {useState} from "react";
-import type {OnlineRoom} from "../types/onlineRoom.ts";
+import {type FormEvent, useState} from "react";
 import {createOnlineRoom} from "../services/onlineRooms.ts";
 import {Link, useNavigate} from "react-router-dom";
 
 export function OnlineCreateRoom() {
 
 const [hostName, setHostName] = useState('')
-const [createdRoom, setCreatedRoom] = useState<OnlineRoom | null>(null)
 const [errorMessage, setErrorMessage] = useState('')
 const [isCreating, setIsCreating] = useState(false)
     const navigate = useNavigate()
@@ -14,13 +12,13 @@ const [isCreating, setIsCreating] = useState(false)
     const canContinue =
         hostName.trim().length > 0 && !isCreating
 
-async function handleCreateRoom() {
+async function handleCreateRoom(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
     setErrorMessage('')
     setIsCreating(true)
 try {
     const onlineRoom  = await createOnlineRoom(hostName)
     navigate(`/room/${onlineRoom.id}`)
-    setCreatedRoom(onlineRoom)
 }
 catch (error) {
     setErrorMessage(
@@ -35,56 +33,53 @@ finally {
 
 }
 
-    if(createdRoom === null) {
-        return(
-            <main className='app'>
-                <header className="setup-header">
-                    <Link
-                        className="back-button"
-                        to="/setup"
+    return(
+        <main className='app'>
+            <header className="setup-header">
+                <Link
+                    className="back-button"
+                    to="/setup"
+                >
+                    ← Back
+                </Link>
 
-                    >
-                        ← Back
-                    </Link>
+                <span className="mode-label">ONLINE ROOM</span>
+            </header>
 
-                    <span className="mode-label">Step 2 of 3</span>
-                </header>
+            <form className="setup-content" aria-labelledby="host-title" onSubmit={handleCreateRoom}>
+                <p className="eyebrow">CREATE A ROOM</p>
 
-                <section className="setup-content" aria-labelledby="host-title">
-                    <p className="eyebrow">A LITTLE ABOUT YOU</p>
+                <h1 id="host-title">What should we call you?</h1>
 
-                    <h1 id="host-title">What should we call you?</h1>
+                <p className="hero-copy">
+                    Create a private room, invite up to seven friends, then choose together from separate devices.
+                </p>
 
-                    <p className="hero-copy">
-                        This name will appear during your movie night.
-                    </p>
+                <label className="input-label" htmlFor="host-name">
+                    Your name
+                </label>
 
-                    <label className="input-label" htmlFor="host-name">
-                        Your name
-                    </label>
-
-                    <input
-                        className='name-input'
-                        id="host-name"
-                        type='text'
-                        value={hostName}
-                        placeholder="e.g. Oksana"
-                        onChange={(e) => setHostName(e.target.value)}
-                    />
-                    <button
-                        className="primary-button"
-                        type="button"
-                        disabled={!canContinue}
-                        onClick={handleCreateRoom}
-                    >
-                        Create online room
-                        <span aria-hidden="true">→</span>
-                    </button>
-                    {errorMessage && (
-                        <p role="alert">{errorMessage}</p>
-                    )}
-                </section>
-            </main>
-        )
-    }
+                <input
+                    className='name-input'
+                    id="host-name"
+                    type='text'
+                    value={hostName}
+                    placeholder="e.g. Oksana"
+                    autoComplete="name"
+                    onChange={(e) => setHostName(e.target.value)}
+                />
+                <button
+                    className="primary-button"
+                    type="submit"
+                    disabled={!canContinue}
+                >
+                    {isCreating ? 'Creating room...' : 'Create online room'}
+                    {!isCreating && <span aria-hidden="true">→</span>}
+                </button>
+                {errorMessage && (
+                    <p className="form-error" role="alert">{errorMessage}</p>
+                )}
+            </form>
+        </main>
+    )
 }

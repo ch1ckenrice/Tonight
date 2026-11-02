@@ -37,11 +37,11 @@ function HomePage() {
     return (
         <main className="app">
             <header className="top-bar">
-                <a className="brand" href="/" aria-label="Tonight home">
+                <Link className="brand" to="/" aria-label="Tonight home">
                     tonight<span>•</span>
-                </a>
+                </Link>
 
-                <span className="mode-label">pass-the-phone</span>
+                <span className="mode-label">movie night picker</span>
             </header>
 
             <section className="hero" aria-labelledby="hero-title">
@@ -50,8 +50,8 @@ function HomePage() {
                 <h1 id="hero-title">Stop scrolling. Start watching.</h1>
 
                 <p className="hero-copy">
-                    Tell Tonight who is watching and what mood you are in. We will help
-                    everyone find a movie they will actually enjoy.
+                    Tell Tonight who is watching and what mood you are in. Choose together
+                    on one phone or in a private online room.
                 </p>
 
                 <Link className="primary-button" to="/setup">
@@ -59,8 +59,8 @@ function HomePage() {
                 </Link>
 
                 <ul className="hero-points">
-                    <li>1–4 people</li>
-                    <li>Quick decisions</li>
+                    <li>Solo, group or online</li>
+                    <li>Private choices</li>
                     <li>No account needed</li>
                 </ul>
             </section>
@@ -103,8 +103,8 @@ function HomePage() {
                     <li>
                         <span>02</span>
                         <div>
-                            <h3>Pass the phone</h3>
-                            <p>Everyone likes or skips movie cards in turn.</p>
+                            <h3>Choose together</h3>
+                            <p>Pass one phone around or share an online room with friends.</p>
                         </div>
                     </li>
 

@@ -6,6 +6,8 @@ import {getCurrentUserId} from "../services/auth.ts";
 import type {Mood} from "../types/session.ts";
 import {moodOptions} from "../data/moodOptions.ts";
 import {getMoviesForMood} from "../services/tmdb.ts";
+import { PageState } from '../components/PageState.tsx'
+import { getOnlineRoomRoute } from '../utils/onlineRoomRoute.ts'
 
 const DECK_SIZE = 12
 
@@ -15,7 +17,8 @@ export function OnlineRoomSetupPage() {
 
     const [room, setRoom] = useState<OnlineRoom | null>(null)
     const [isLoading, setIsLoading] = useState(true)
-    const [errorMessage, setErrorMessage] = useState<string>('')
+    const [loadErrorMessage, setLoadErrorMessage] = useState('')
+    const [startErrorMessage, setStartErrorMessage] = useState('')
     const [selectedMood, setSelectedMood] = useState<Mood | null>(null)
     const [isStarting, setIsStarting] = useState(false)
     const { roomId } = useParams()
@@ -25,25 +28,31 @@ export function OnlineRoomSetupPage() {
     useEffect(() => {
         async function checkHostAccess() {
             if (!roomId) {
-                setErrorMessage('Could not find room')
+                setLoadErrorMessage('Could not find room')
                 setIsLoading(false)
                 return
             }
 
             try {
                 setIsLoading(true)
+                setLoadErrorMessage('')
 
                 const loadedRoom = await getOnlineRoom(roomId)
                 const currentUserId = await getCurrentUserId()
 
                 if (currentUserId !== loadedRoom.host_user_id) {
-                    navigate(`/room/${roomId}`)
+                    navigate(getOnlineRoomRoute(loadedRoom), { replace: true })
+                    return
+                }
+
+                if (loadedRoom.status !== 'lobby') {
+                    navigate(getOnlineRoomRoute(loadedRoom), { replace: true })
                     return
                 }
 
                 setRoom(loadedRoom)
             } catch {
-                setErrorMessage('Could not load room')
+                setLoadErrorMessage('Could not load room')
             }
             finally {
                 setIsLoading(false)
@@ -56,10 +65,10 @@ export function OnlineRoomSetupPage() {
         if (!roomId || !selectedMood) {
             return
         }
-        const randomPage = Math.floor(Math.random() * 500) + 1
+        const randomPage = Math.floor(Math.random() * 15) + 1
         try {
             setIsStarting(true)
-            setErrorMessage('')
+            setStartErrorMessage('')
 
             const movies = await getMoviesForMood(selectedMood, randomPage)
             const deckMovies = movies.slice(0, DECK_SIZE)
@@ -71,7 +80,7 @@ export function OnlineRoomSetupPage() {
 
         }
         catch {
-            setErrorMessage('Could not start movie night')
+            setStartErrorMessage('Could not start movie night. Check your connection and try again.')
 
         }
         finally {
@@ -81,11 +90,19 @@ export function OnlineRoomSetupPage() {
     }
 
     if (isLoading) {
-        return <main className="app">Loading room...</main>
+        return <PageState eyebrow="ONLINE MOVIE NIGHT" title="Loading room..." isLoading />
     }
 
-    if (errorMessage) {
-        return <main className="app">{errorMessage}</main>
+    if (loadErrorMessage) {
+        return (
+            <PageState
+                eyebrow="ONLINE MOVIE NIGHT"
+                title="Could not load this room."
+                message={loadErrorMessage}
+                actionLabel="Back to room"
+                actionTo={roomId ? `/room/${roomId}` : '/'}
+            />
+        )
     }
 
     if (!room) {
@@ -131,9 +148,15 @@ export function OnlineRoomSetupPage() {
                     disabled={!selectedMood || isStarting}
                     onClick={handleStartRound}
                 >
-                    Start movie night
+                    {isStarting ? 'Building your movie deck...' : 'Start movie night'}
                     <span aria-hidden="true">→</span>
                 </button>
+
+                {startErrorMessage && (
+                    <p className="form-error" role="alert">
+                        {startErrorMessage}
+                    </p>
+                )}
             </section>
         </main>
     )

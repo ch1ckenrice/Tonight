@@ -1,8 +1,12 @@
-import {useCallback, useEffect, useState} from "react";
+import {type FormEvent, useCallback, useEffect, useState} from "react";
 import type {OnlineRoom, OnlineRoomMember} from "../types/onlineRoom.ts";
 import { Link, useNavigate, useParams } from "react-router-dom"
 import { supabase } from "../services/supabase.ts"
 import {getMyRoomMember, getOnlineRoom, getRoomMembers, joinOnlineRoom} from "../services/onlineRooms.ts";
+import { PageState } from '../components/PageState.tsx'
+import { getOnlineRoomRoute } from '../utils/onlineRoomRoute.ts'
+
+const MAX_ROOM_MEMBERS = 8
 
 export function OnlineRoomPage() {
     const [currentMember, setCurrentMember] =
@@ -12,6 +16,7 @@ export function OnlineRoomPage() {
     const {roomId} = useParams()
     const navigate = useNavigate()
     const [errorMessage, setErrorMessage] = useState('')
+    const [roomLoadErrorMessage, setRoomLoadErrorMessage] = useState('')
     const [memberName, setMemberName] = useState('')
     const [isJoining, setIsJoining] = useState(false)
     const [room, setRoom] = useState<OnlineRoom | null>(null)
@@ -29,36 +34,67 @@ export function OnlineRoomPage() {
     }, [])
 
     useEffect(() => {
+        let isCurrentRequest = true
+
         async function loadCurrentMember() {
             if (!roomId) {
-                setErrorMessage('Room link is invalid')
-                setIsLoading(false)
+                if (isCurrentRequest) {
+                    setRoomLoadErrorMessage('Room link is invalid')
+                    setIsLoading(false)
+                }
                 return
             }
-            setErrorMessage('')
-            try {
 
+            setRoomLoadErrorMessage('')
+            try {
                 setIsLoading(true)
                 const roomMember = await getMyRoomMember(roomId)
-                setCurrentMember(roomMember)
-                if(roomMember !== null) {
+
+                if (!isCurrentRequest) {
+                    return
+                }
+
+                // Do not render the lobby until its room data is available.
+                // Otherwise an existing member briefly lands in the "Room not found"
+                // state between these two async requests.
+                if (roomMember !== null) {
                     await loadRoomData(roomId)
                 }
 
+                if (!isCurrentRequest) {
+                    return
+                }
+
+                setCurrentMember(roomMember)
+
             } catch {
-                setErrorMessage('Could not load this room')
+                if (isCurrentRequest) {
+                    setRoomLoadErrorMessage('Could not load this room')
+                }
             } finally {
-                setIsLoading(false)
+                if (isCurrentRequest) {
+                    setIsLoading(false)
+                }
             }
         }
         void loadCurrentMember()
+
+        return () => {
+            isCurrentRequest = false
+        }
     }, [roomId, loadRoomData])
 
     useEffect(() => {
-        if (room?.status === 'choosing' && roomId) {
-            navigate(`/room/${roomId}/choose`)
+        if (!room) {
+            return
         }
-    }, [room?.status, roomId, navigate])
+
+        const roomRoute = getOnlineRoomRoute(room)
+
+        if (roomRoute !== `/room/${room.id}`) {
+            navigate(roomRoute, { replace: true })
+        }
+    }, [room, navigate])
 
 
     useEffect(() => {
@@ -114,7 +150,9 @@ export function OnlineRoomPage() {
         }
     }, [roomId, currentMember, loadRoomData])
 
-   async function handleJoinRoom() {
+   async function handleJoinRoom(event: FormEvent<HTMLFormElement>) {
+        event.preventDefault()
+
         if(!roomId){
             setErrorMessage('Room link is invalid')
             return
@@ -125,13 +163,17 @@ export function OnlineRoomPage() {
 
 
        const roomMember = await joinOnlineRoom(roomId, memberName)
-       setCurrentMember(roomMember)
            await loadRoomData(roomId)
+       setCurrentMember(roomMember)
 
        }
        catch (error) {
            console.error('Could not join room:', error)
-           setErrorMessage('Could not join this room')
+           setErrorMessage(
+               error instanceof Error && error.message === 'This room is full'
+                   ? 'This room already has 8 people.'
+                   : 'Could not join this room',
+           )
        }
         finally {
            setIsJoining(false)
@@ -153,13 +195,29 @@ export function OnlineRoomPage() {
         }
     }
 
-    if (isLoading) return <main className="app">Loading room...</main>
+    if (isLoading) {
+        return <PageState eyebrow="ONLINE MOVIE NIGHT" title="Loading room..." isLoading />
+    }
 
+    if (roomLoadErrorMessage) {
+        return (
+            <PageState
+                eyebrow="ONLINE MOVIE NIGHT"
+                title="Could not open this room."
+                message={roomLoadErrorMessage}
+                actionLabel="Back home"
+            />
+        )
+    }
 
     if (!currentMember) {
         return (
             <main className="app">
-                <section className="setup-content online-join-content" aria-labelledby="join-room-title">
+                <form
+                    className="setup-content online-join-content"
+                    aria-labelledby="join-room-title"
+                    onSubmit={handleJoinRoom}
+                >
                     <p className="eyebrow">YOU'RE INVITED</p>
 
                     <h1 id="join-room-title">Join this movie night.</h1>
@@ -184,9 +242,8 @@ export function OnlineRoomPage() {
 
                     <button
                         className="primary-button"
-                        type="button"
+                        type="submit"
                         disabled={memberName.trim().length === 0 || isJoining}
-                        onClick={handleJoinRoom}
                     >
                         {isJoining ? 'Joining...' : 'Join room'}
                         {!isJoining && <span aria-hidden="true">→</span>}
@@ -197,12 +254,19 @@ export function OnlineRoomPage() {
                             {errorMessage}
                         </p>
                     )}
-                </section>
+                </form>
             </main>
         )
     }
     if (!room) {
-        return <main className="app">Loading room...</main>
+        return (
+            <PageState
+                eyebrow="ONLINE MOVIE NIGHT"
+                title="Room not found."
+                message="The invite link may be invalid or this room is no longer available."
+                actionLabel="Back home"
+            />
+        )
     }
     const isHost = currentMember.user_id === room.host_user_id
 
@@ -230,7 +294,7 @@ export function OnlineRoomPage() {
 
                     <p className="hero-copy">
                         {isHost
-                            ? 'Share the invite link with your friends. Everyone will choose privately from the same movie deck.'
+                            ? 'Share the invite link with your friends. Up to 8 people can choose privately from the same movie deck.'
                             : 'You joined the movie night. Wait for the host to choose the mood and start the round.'}
                     </p>
                 </div>
@@ -269,7 +333,9 @@ export function OnlineRoomPage() {
                 <section className="room-members" aria-labelledby="members-title">
                     <div className="room-members-heading">
                         <h2 id="members-title">In this room</h2>
-                        <span>{members.length} people</span>
+                        <span aria-live="polite">
+                            {members.length} of {MAX_ROOM_MEMBERS} people
+                        </span>
                     </div>
 
                     <ul className="room-members-list">
@@ -295,9 +361,15 @@ export function OnlineRoomPage() {
 
                 <p className="lobby-footer-copy">
                     {isHost
-                        ? 'Waiting for everyone to join.'
+                        ? 'Waiting for everyone to join. The room closes when you start the round.'
                         : 'Your choices will stay private until everyone finishes.'}
                 </p>
+
+                {errorMessage && (
+                    <p className="form-error" role="alert">
+                        {errorMessage}
+                    </p>
+                )}
 
                 {isHost && (
                     <Link

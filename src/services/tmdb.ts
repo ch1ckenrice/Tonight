@@ -33,7 +33,7 @@ export async function getMoviesForMood(mood:Mood, page:number): Promise<TmdbMovi
     const genreId = moodGenreIds[mood]
 
     const response = await fetch(
-        `${API_BASE_URL}/discover/movie?language=en-US&sort_by=popularity.desc&with_genres=${genreId}&page=${page}`,
+        `${API_BASE_URL}/discover/movie?language=en-US&sort_by=popularity.desc&with_genres=${genreId}&vote_count.gte=100&include_adult=false&include_video=false&page=${page}`,
         {
             headers: {
                 Authorization: `Bearer ${accessToken}`,

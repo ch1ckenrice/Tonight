@@ -1,6 +1,6 @@
 import {Link, Navigate, useLocation} from 'react-router-dom'
 import type { TonightSession } from '../types/session'
-import {useEffect, useRef, useState, type PointerEvent } from "react";
+import {useEffect, useEffectEvent, useRef, useState, type PointerEvent, type TransitionEvent } from "react";
 import {getMoviesForMood, type TmdbMovie} from "../services/tmdb.ts";
 import { MovieCard } from '../components/MovieCard'
 import {SwipeMovieCard} from "../components/SwipeMovieCard.tsx";
@@ -86,12 +86,12 @@ export function ChoosePage() {
     }, [mood, storedRound])
 
     useEffect(() => {
-        if(!session || deckMovies.length === 0) {
+        if(!session || movies.length === 0) {
             return
         }
         const roundToSave: StoredRound = {
             session: session,
-            deckMovies: deckMovies,
+            deckMovies: movies.slice(0, DECK_SIZE),
             currentMovieIndex: currentMovieIndex,
             currentParticipantIndex: currentParticipantIndex,
             likedMovieIds: likedMovieIds,
@@ -155,6 +155,10 @@ export function ChoosePage() {
     }
 
     function handlePointerDown(event:PointerEvent<HTMLDivElement>) {
+        if (exitDirection !== null) {
+            return
+        }
+
         event.currentTarget.setPointerCapture(event.pointerId)
         dragXRef.current = 0
         dragStartX.current = event.clientX
@@ -165,10 +169,10 @@ export function ChoosePage() {
         setIsDragging(false)
         const finalDragX = dragXRef.current
         if (finalDragX > SWIPE_THRESHOLD.like) {
-            handleLike()
+            setExitDirection('like')
         }
         else if (finalDragX < SWIPE_THRESHOLD.skip) {
-            handleSkip()
+            setExitDirection('skip')
         }
         dragXRef.current = 0
         setDragX(0)
@@ -180,10 +184,18 @@ export function ChoosePage() {
     }
 
     function startButtonSwipe(direction: 'like' | 'skip') {
+        if (exitDirection !== null) {
+            return
+        }
+
         setExitDirection(direction)
     }
 
-    function handleCardTransitionEnd() {
+    function handleCardTransitionEnd(event: TransitionEvent<HTMLDivElement>) {
+        if (event.target !== event.currentTarget || event.propertyName !== 'transform') {
+            return
+        }
+
         if (exitDirection === null) {
             return
         }
@@ -195,6 +207,14 @@ export function ChoosePage() {
         setExitDirection(null)
     }
 
+    const handleWindowPointerUp = useEffectEvent(() => {
+        handlePointerEnd()
+    })
+
+    const handleWindowBlur = useEffectEvent(() => {
+        handlePointerCancel()
+    })
+
     useEffect(() => {
         if(!isDragging) {
             return
@@ -204,21 +224,21 @@ export function ChoosePage() {
             dragXRef.current = diff
             setDragX(diff)
         }
-        function handleWindowPointerUp() {
-            handlePointerEnd()
+        function onWindowPointerUp() {
+            handleWindowPointerUp()
         }
-        function handleWindowBlur() {
-            handlePointerCancel()
+        function onWindowBlur() {
+            handleWindowBlur()
         }
 
         window.addEventListener('pointermove', handleWindowPointerMove)
-        window.addEventListener('pointerup', handleWindowPointerUp)
-        window.addEventListener('blur', handleWindowBlur)
+        window.addEventListener('pointerup', onWindowPointerUp)
+        window.addEventListener('blur', onWindowBlur)
 
         return () => {
             window.removeEventListener('pointermove', handleWindowPointerMove)
-            window.removeEventListener('pointerup', handleWindowPointerUp)
-            window.removeEventListener('blur', handleWindowBlur)
+            window.removeEventListener('pointerup', onWindowPointerUp)
+            window.removeEventListener('blur', onWindowBlur)
         }
     }, [isDragging])
 
@@ -321,7 +341,7 @@ export function ChoosePage() {
 
     if(chooseStage === 'results') {
         return (
-            <main className="app">
+            <main className="app results-page">
                 <header className='results-header'>
                     <Link
                         className='back-link'
@@ -340,13 +360,13 @@ export function ChoosePage() {
                         tonight<span>•</span>
                     </Link>
                 </header>
-                <div className={bestMovie ? 'app-content' : 'app-content empty-results-content'}>
+                <div className={bestMovie ? 'app-content results-content' : 'app-content empty-results-content'}>
 
                     <p className="eyebrow">YOUR MOVIE DECK</p>
                 {bestMovie ? (
                     <article>
                         <h2>Tonight’s pick</h2>
-                        <MovieCard movie={bestMovie} showOverview/>
+                        <MovieCard className="results-featured-card" movie={bestMovie} showOverview/>
                        {isGroupMode ? (
                            <small className="top-pick-text"> ⓘ Chosen from films everyone liked, based on the highest TMDB rating. </small>
                         ) : (
@@ -393,32 +413,40 @@ export function ChoosePage() {
     }
     if(chooseStage === 'choosing') {
     return (
-        <main className="app">
-            <div style={{ opacity: likeOpacity }} className="swipe-feedback swipe-feedback-like">
+        <main className="app choose-page">
+            <div aria-hidden="true" style={{ opacity: likeOpacity }} className="swipe-feedback swipe-feedback-like">
                 <span className="swipe-label swipe-label-like">LIKE</span>
             </div>
-            <div style={{ opacity: skipOpacity }} className="swipe-feedback swipe-feedback-skip">
+            <div aria-hidden="true" style={{ opacity: skipOpacity }} className="swipe-feedback swipe-feedback-skip">
                 <span className="swipe-label swipe-label-skip">SKIP</span>
             </div>
-            <div className="app-content">
-            <p className="eyebrow">YOUR MOVIE DECK</p>
+            <div className="app-content choice-page-content">
+                <div className="choice-copy">
+                    <p className="eyebrow">YOUR MOVIE DECK</p>
 
-            <h1>
-                Ready, {currentParticipant.name}.
-                <br />
-                Let’s find tonight’s film.
-            </h1>
+                    <h1>
+                        Ready, {currentParticipant.name}.
+                        <br />
+                        Let’s find tonight’s film.
+                    </h1>
 
-            <p className="hero-copy">
-                Mood: {session.mood}. Watching with: {people.join(', ')}.
-            </p>
+                    <p className="hero-copy">
+                        Mood: {session.mood}. Watching with: {people.join(', ')}.
+                    </p>
 
-            {isLoading && <p>Loading movies...</p>}
+                    {!isLoading && !errorMessage && currentMovie && (
+                        <p className="deck-progress">
+                            {currentMovieIndex + 1} of {deckMovies.length}
+                        </p>
+                    )}
 
-            {errorMessage && <p>{errorMessage}</p>}
+                    {isLoading && <p className="choice-status">Loading movies...</p>}
 
-            {!isLoading && !errorMessage && currentMovie && (
-                <section className="choice-stage">
+                    {errorMessage && <p className="form-error" role="alert">{errorMessage}</p>}
+                </div>
+
+                {!isLoading && !errorMessage && currentMovie && (
+                    <section className="choice-stage">
                     <div
                         key={currentMovie.id}
                         className="swipe-card"
@@ -433,6 +461,7 @@ export function ChoosePage() {
                             className="skip-button swipe-button"
                             aria-label="Skip this movie"
                             type="button"
+                            disabled={exitDirection !== null}
                             onClick={() => startButtonSwipe('skip')}
                         >
                             ×
@@ -441,14 +470,14 @@ export function ChoosePage() {
                         className="like-button swipe-button"
                         aria-label="Like this movie"
                         type="button"
+                        disabled={exitDirection !== null}
                         onClick={() => startButtonSwipe('like')}
                         >
                             ♥
                         </button>
                     </div>
                 </section>
-            )}
-
+                )}
 
             </div>
         </main>
