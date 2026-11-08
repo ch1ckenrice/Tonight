@@ -7,8 +7,16 @@ type MovieCardProps = {
 }
 
 export function MovieCard({ movie, showOverview = false,  className = ''}: MovieCardProps) {
+
+    const tmdbMovieUrl = `https://www.themoviedb.org/movie/${movie.id}`
+
     return (
-        <article className={`movie-card ${className}`} >
+        <a className={`movie-card ${className}`}
+        href={tmdbMovieUrl}
+           target="_blank"
+           rel="noreferrer"
+           aria-label= {`Open ${movie.title} on TMDB`}
+        >
             {movie.poster_path ? (
                 <img
                     className="movie-poster"
@@ -35,6 +43,6 @@ export function MovieCard({ movie, showOverview = false,  className = ''}: Movie
                     </div>
                 )}
             </div>
-        </article>
+        </a>
     )
 }
